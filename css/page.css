@@ -1,0 +1,62 @@
+html, body {
+    margin: 0px;
+    padding: 0px;
+    background-color: cornflowerblue;
+}
+header {
+    width: 100%;
+    height: 60px;
+    background-color: dimgray;
+    position: fixed;
+}
+header .logo {
+    position: absolute;
+    margin-top: 15px;
+    margin-left: 15px;
+    width: 30px;
+    height: 30px;
+    background-color: red;
+}
+main {
+    position: absolute;
+    top: 60px;
+    width: 100%;
+    height: calc(100% - 60px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    text-align: center;
+}
+main .board {
+    position: absolute;
+    background-color: green;
+    width: 50px;
+    height: 50px;
+    margin: 20px;
+    background-image: url("../img/Blank_Go_board.svg.png");
+    background-position: 50% 50%;
+    background-size: 101% 101%;
+    background-repeat: no-repeat;
+    left: 50%;
+}
+main .board .row {
+    width: 100%;
+    height: calc(100% / 19);
+}
+main .board .row .cell {
+    display: inline-block;
+    height: 100%;
+    width: calc(100% / 19);
+    cursor: pointer;
+}
+main .board .row .cell .piece {
+    width: calc(100% - 2px);
+    height: calc(100% - 2px);
+    border-radius: 50%;
+    border: 2px solid gray;
+}
+main .board .row .cell .piece.white {
+    background-color: white;
+}
+main .board .row .cell .piece.black {
+    background-color: black;
+}
