@@ -9,9 +9,25 @@
         <link href="css/page.css" rel="stylesheet" />
     </head>
     <body>
-        <header><div class="logo"></div></header>
         <main id="main">
             <div class="board" id="board"></div>
+            <div class="optionscover" id="optscreen">
+                <div class="options">
+                    <h1>GO</h1>
+                    <button onclick="gogame.game.startNew()">Új játék</button><br>
+                    <button onclick="$('#joinbox').show()">Csatlakozás játékba</button>
+                </div>
+                <div id="joinbox" class="options">
+                    <h1>Csatlakozás</h1>
+                    <input type="text" id="gameid" placeholder="Game ID"></intput><br>
+                    <button onclick="gogame.game.joinGame(_('gameid').value)">Csatlakozás</button>
+                </div>
+            </div>
+            <div class="optionscover" id="connectingtext">
+                <div class="options">
+                    <h1>Csatlakozás a szerverhez...</h1>
+                </div>
+            </div>
         </main>
     </body>
 </html>

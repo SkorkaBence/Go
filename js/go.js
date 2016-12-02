@@ -5,11 +5,13 @@ function _(e) {
 gogame = {
     _init: function() {
         console.log("inicializing...");
+        $('#joinbox').hide();
+        $('#connectingtext').hide();
         gogame.resize();
         //document.addEventListener("resize", gogame.resize);
         $(window).resize(gogame.resize);
         gogame.resetboard();
-        gogame.connection._init();
+        gogame.player.generateNewId();
     },
     resetboard: function() {
         var br = _("board");
@@ -31,7 +33,6 @@ gogame = {
         }
     },
     resize: function() {
-        console.log("resizing...");
         var sw = _("main").offsetWidth;
         var sh = _("main").offsetHeight;
         var br = _("board");
@@ -41,11 +42,13 @@ gogame = {
             br.style.width = sh - 40;
             br.style.height = sh - 40;
             br.style.marginLeft = - (sh/2 - 20) + "px";
+            br.style.marginTop = - (br.offsetHeight / 2) + "px";
         } else {
             // magas
             br.style.width = sw - 40;
             br.style.height = sw - 40;
             br.style.marginLeft = - (sw/2 - 20) + "px";
+            br.style.marginTop = - (br.offsetHeight / 2) + "px";
         }
     },
     getCell: function(x, y) {
@@ -77,35 +80,42 @@ gogame = {
         }
     },
     clickCell: function(o, x, y) {
-        //alert(x + " " + y);
-        var cell = _("cell-"+x+"-"+y);
-        var celltype = gogame.getCell(x, y);
-        
-        if (celltype === "empty") {
-            gogame.setCell(x, y, "white");
-        } else {
-            gogame.setCell(x, y, "empty");
+        if (!gogame.game.isPlaying) {
+            return;
+        }
+        if (gogame.player.color === "empty") {
+            return;
+        }
+        if (gogame.player.color === gogame.game.currentColor) {
+            gogame.connection.sender.step(x, x, gogame.player.color);
         }
     },
     connection: {
         connectionType: "none",
         client: null,
         errorcount: 0,
+        isOpen: false,
         test: function() {
-            if (!!window.EventSource) {
+            if (!!window.EventSource) { // TODO: Use SSE instead of EentSource, for two-way socket communication
                 return "EventSource";
             } else {
                 return "xhr";
             }
         },
         _init: function() {
+            console.log("Connection init...");
+            if (gogame.game.gameId === "none") {
+                console.error("Nem indult meg jatek!");
+                return;
+            }
             if (gogame.connection.test() === "EventSource") {
                 // eventsource
                 gogame.connection.connectionType = "EventSource";
-                gogame.connection.client = new EventSource("http://domain.host.csfcloud.com/learndb/stream.php");
+                gogame.connection.client = new EventSource("http://domain.host.csfcloud.com/learndb/stream.php?gameid=" + gogame.game.gameId + "&playerid=" + gogame.player.player_id + "&playersecret=" + gogame.player.player_secret);
                 gogame.connection.client.addEventListener("open", gogame.connection.events.open);
                 gogame.connection.client.addEventListener("error", gogame.connection.events.error);
                 gogame.connection.client.addEventListener("message", gogame.connection.events.message);
+                $('#connectingtext').show();
             } else if (gogame.connection.test() === "xhr") {
                 // xhr
                 gogame.connection.connectionType = "xhr";
@@ -117,9 +127,12 @@ gogame = {
                 // connection opened
                 console.log("Connection opened!");
                 gogame.connection.errorcount = 0;
+                gogame.connection.isOpen = true;
+                $('#connectingtext').hide();
             },
             error: function(e) {
                 // connection closed
+                gogame.connection.isOpen = false;
                 if (e.readyState !== EventSource.CLOSED) {
                     gogame.connection.errorcount++;
                     console.error("Connection error");
@@ -137,18 +150,88 @@ gogame = {
                     console.error("Wrong data: " + JSON.stringify(data));
                     return;
                 }
-                
                 if (data.type === "join") {
-                    // valaki belepett
-                }
-                if (data.type === "step") {
+                    // new player joined
+                    gogame.game.players.append(data.playerid);
+                } else if (data.type === "step") {
                     gogame.setCell(data.cell.x, data.cell.y, data.cell.value);
-                }
-                if (data.type === "reset") {
+                    gogame.game.currentColor = data.next;
+                } else if (data.type === "reset") {
                     gogame.resetboard();
                 }
             }
+        },
+        sender: {
+            step: function(x, y, v) {
+                if (!gogame.game.isPlaying) {
+                    return;
+                }
+                if (!gogame.connection.isOpen) {
+                    alert("Nincs kapcsolat a játékszerverrel! Kérlek várj az újrakapcsolódásra!");
+                    return;
+                }
+                
+                var data = gogame.connection.sender.buildQuery({
+                    type: "step",
+                    cell: {
+                        x: x,
+                        y: y,
+                        value: v
+                    }
+                });
+            },
+            reset: function() {
+                if (!gogame.game.isPlaying) {
+                    return;
+                }
+                if (!gogame.connection.isOpen) {
+                    alert("Nincs kapcsolat a játékszerverrel! Kérlek várj az újrakapcsolódásra!");
+                    return;
+                }
+            },
+            buildQuery: function(data) {
+                data["playerid"] = gogame.player.player_id;
+                data["playersecret"] = gogame.player.player_secret;
+            }
         }
+    },
+    player: {
+        color: "none",
+        player_id: "none",
+        player_secret: "none",
+        generateNewId: function() {
+            gogame.player.player_id = gogame.randomId(32);
+            gogame.player.player_secret = gogame.randomId(64);
+        }
+    },
+    game: {
+        isPlaying: false,
+        currentColor: "none",
+        gameId: "none",
+        players: [],
+        startNew: function() {
+            gogame.resetboard();
+            gogame.game.isPlaying = true;
+            gogame.game.gameId = gogame.randomId(64);
+            $("#optscreen").hide();
+            gogame.connection._init();
+        },
+        joinGame: function(gameid) {
+            gogame.resetboard();
+            gogame.game.isPlaying = true;
+            gogame.game.gameId = gameid;
+            $("#optscreen").hide();
+            gogame.connection._init();
+        }
+    },
+    randomId: function(l) {
+        var arr = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        var res = "";
+        for (var i = 0; i < l; i++){
+            var r = Math.floor(Math.random() * arr.length);
+            res += arr[r];
+        }
+        return res;
     }
 };
 
