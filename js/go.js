@@ -96,8 +96,8 @@ gogame = {
         errorcount: 0,
         isOpen: false,
         test: function() {
-            if (!!window.EventSource) { // TODO: Use SSE instead of EentSource, for two-way socket communication
-                return "EventSource";
+            if (!!window.WebSocket) { // TODO: Use SSE instead of EentSource, for two-way socket communication
+                return "WebSocket";
             } else {
                 return "xhr";
             }
@@ -108,7 +108,8 @@ gogame = {
                 console.error("Nem indult meg jatek!");
                 return;
             }
-            if (gogame.connection.test() === "EventSource") {
+            var cnttype = gogame.connection.test();
+            if (cnttype === "EventSource") {
                 // eventsource
                 gogame.connection.connectionType = "EventSource";
                 gogame.connection.client = new EventSource("http://domain.host.csfcloud.com/learndb/stream.php?gameid=" + gogame.game.gameId + "&playerid=" + gogame.player.player_id + "&playersecret=" + gogame.player.player_secret);
@@ -116,7 +117,14 @@ gogame = {
                 gogame.connection.client.addEventListener("error", gogame.connection.events.error);
                 gogame.connection.client.addEventListener("message", gogame.connection.events.message);
                 $('#connectingtext').show();
-            } else if (gogame.connection.test() === "xhr") {
+            } else if (cnttype === "WebSocket") {
+                gogame.connection.connectionType = "WebSocket";
+                gogame.connection.client = new WebSocket("wss://domain.host.csfcloud.com/learndb/stream.php?gameid=" + gogame.game.gameId + "&playerid=" + gogame.player.player_id + "&playersecret=" + gogame.player.player_secret);
+                gogame.connection.client.onmessage = gogame.connection.events.message;
+                gogame.connection.client.onerror = gogame.connection.events.error;
+                gogame.connection.client.onclose = gogame.connection.events.close;
+                gogame.connection.client.onopen = gogame.connection.events.open;
+            } else if (cnttype === "xhr") {
                 // xhr
                 gogame.connection.connectionType = "xhr";
                 alert("xhr");
@@ -130,10 +138,22 @@ gogame = {
                 gogame.connection.isOpen = true;
                 $('#connectingtext').hide();
             },
-            error: function(e) {
-                // connection closed
+            close: function(e) {
                 gogame.connection.isOpen = false;
-                if (e.readyState !== EventSource.CLOSED) {
+            },
+            error: function(e) {
+                if (gogame.connection.connectionType === "EventSource") {
+                    gogame.connection.isOpen = false;
+                    if (e.readyState !== EventSource.CLOSED) {
+                        gogame.connection.errorcount++;
+                        console.error("Connection error");
+                        if (gogame.connection.errorcount < 5) {
+                            setTimeout(gogame.connection._init, 1000);
+                        } else {
+                            alert("Nem sikerult megnyitni a kapcsolatot!");
+                        }
+                    }
+                } else if (gogame.connection.connectionType === "WebSocket") {
                     gogame.connection.errorcount++;
                     console.error("Connection error");
                     if (gogame.connection.errorcount < 5) {
@@ -192,6 +212,7 @@ gogame = {
             buildQuery: function(data) {
                 data["playerid"] = gogame.player.player_id;
                 data["playersecret"] = gogame.player.player_secret;
+                data["gameid"] = gogame.game.gameId;
             }
         }
     },
